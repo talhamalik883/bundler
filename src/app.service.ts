@@ -1,34 +1,29 @@
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { UserOpType, VerifyingUserOpMiddlewareDataType } from './types';
 import {
-  HttpException, HttpStatus, Injectable, Logger,
-} from '@nestjs/common';
-import { UserOpType, VerifyingUserOpMiddlewareDataType } from './types'
-import {  paymasterAddress,
+  paymasterAddress,
   paymasterAbi,
   paymasterFundingKey,
   ENTRY_POINT_ABI,
   ENTRY_POINT_ADDRESS,
-  PROVIDER_URL
-  } from './constants'
+  PROVIDER_URL,
+} from './constants';
 import { ethers, BigNumber } from 'ethers';
 import { hexConcat } from 'ethers/lib/utils';
 const abi = ethers.utils.defaultAbiCoder;
-import * as dotenv from 'dotenv'
-dotenv.config()
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 @Injectable()
 export class AppService {
   readonly logger = new Logger(AppService.name);
   // provider = new ethers.providers.JsonRpcProvider('https://eth-goerli.g.alchemy.com/v2/477qAVdmEssSZbEPaUMTZXqyetQx5fxg')
-  provider = new ethers.providers.JsonRpcProvider(process.env.PROVIDER_URL)
-  biconomyPaymasterSigningKey = process.env.PRIVATE_KEY
-  signer = new ethers.Wallet(this.biconomyPaymasterSigningKey)
-  // signerAddress = ''
-  web3Provider = new ethers.providers.JsonRpcProvider(process.env.PROVIDER_URL)
+  provider = new ethers.providers.JsonRpcProvider(process.env.PROVIDER_URL);
+  biconomyPaymasterSigningKey = process.env.VERIFYING_SIGNER_PRIVATE_KEY;
+  signer = new ethers.Wallet(this.biconomyPaymasterSigningKey);
+  web3Provider = new ethers.providers.JsonRpcProvider(process.env.PROVIDER_URL);
 
-  // biconomyPaymasterSigningKey = '1deb83a0b24016f1d0de84963a3c60ceff6a7c08dcebefc5e40ac92247848b65'
   getHello(): string {
-    console.log(process.env.PRIVATE_KEY);
-    
     return 'Hello World!';
   }
   // async signUserOpMessage(userOp: UserOpType) {
@@ -113,6 +108,7 @@ export class AppService {
 
   async signUserOpMessage(userOp: UserOpType) {
     try {
+      const partialUserOp: any = userOp;
       // const {
       //   paymasterAddress,
       //   paymasterAbi,
@@ -121,41 +117,74 @@ export class AppService {
       // } = data;
 
       this.logger.log(`userOp: ${JSON.stringify(userOp)}`);
-      const VALID_UNTIL = "0x00000000deadbeef";
-      const VALID_AFTER = "0x0000000000001234";
-      const MOCK_SIG = "0x1234";
-      const ERC20_ADDR = ethers.constants.AddressZero;
-      const EX_RATE = ethers.constants.WeiPerEther.mul(1000);
+      // const VALID_UNTIL = 1683309170;
+      // const VALID_AFTER = 0;
+
+      const VALID_UNTIL = '0x00000000deadbeef';
+      const VALID_AFTER = '0x0000000000001234';
+
+      const MOCK_SIG = '0x1234';
+      const ERC20_ADDR = '0xdA5289fCAAF71d52a80A254da614a192b693e977';
+      const EX_RATE = '1002100';
+      const MOCK_FEE = '0';
       const paymaster = new ethers.Contract(
         paymasterAddress,
         paymasterAbi,
         this.provider,
       );
 
-      const paymasterSigner = new ethers.Wallet(this.biconomyPaymasterSigningKey);
+      const encodedData =
+        '0x00000000000000000000000000000000000000000000000000000000deadbeef00000000000000000000000000000000000000000000000000000000000012340000000000000000000000009fe46736679d2d9a65f0992f2272de9f3c7fa6e000000000000000000000000000000000000000000000000000000000000ee8cc0000000000000000000000000000000000000000000000000000000000000000';
+      const signature = '0x' + '00'.repeat(65);
+      partialUserOp.paymasterAndData = hexConcat([
+        paymasterAddress,
+        ethers.utils.hexlify(1).slice(0, 4),
+        encodedData,
+        signature,
+      ]);
+      console.log(partialUserOp.paymasterAndData);
 
-      const hash = await paymaster.getHash(userOp, VALID_UNTIL, VALID_AFTER, ERC20_ADDR, EX_RATE);
+      const paymasterSigner = new ethers.Wallet(
+        this.biconomyPaymasterSigningKey,
+      );
+
+      const hash = await paymaster.getHash(
+        partialUserOp,
+        ethers.utils.hexlify(1).slice(2, 4),
+        VALID_UNTIL,
+        VALID_AFTER,
+        ERC20_ADDR,
+        EX_RATE,
+        MOCK_FEE,
+      );
       this.logger.log(`For userOp hash is: ${hash}`);
 
-      const signedMessage = await paymasterSigner.signMessage(ethers.utils.arrayify(hash));
+      const signedMessage = await paymasterSigner.signMessage(
+        ethers.utils.arrayify(hash),
+      );
       this.logger.log(`For userOp signedMessage is: ${signedMessage}`);
 
-      const idAndSig = abi.encode(["uint48", "uint48", "address", "uint256"],  [VALID_UNTIL, VALID_AFTER, ERC20_ADDR, EX_RATE]);
+      const idAndSig = ethers.utils.defaultAbiCoder.encode(
+        ['uint48', 'uint48', 'address', 'uint256', 'uint256'],
+        [VALID_UNTIL, VALID_AFTER, ERC20_ADDR, EX_RATE, MOCK_FEE],
+      );
       this.logger.log(`For userOp idAndSig is: ${idAndSig}`);
 
-      const paymasterAndData = hexConcat([paymasterAddress, idAndSig, signedMessage]);
+      const paymasterAndData = hexConcat([
+        paymasterAddress,
+        ethers.utils.hexlify(1).slice(0, 4),
+        idAndSig,
+        signedMessage,
+      ]);
       this.logger.log(`For userOp paymasterAndData is ${paymasterAndData}`);
 
       return paymasterAndData;
     } catch (error) {
-      throw new HttpException(
-        error,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      throw new HttpException(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  async relay(req){
+  async relay(req) {
     console.log('req', req);
     const userOp = req.params[0];
     const entryPointAddress = req.params[1];
@@ -170,14 +199,18 @@ export class AppService {
     const entryPointContract = new ethers.Contract(
       entryPointAddress,
       ENTRY_POINT_ABI,
-      this.web3Provider
+      this.web3Provider,
     );
 
-    // const errorResult = await entryPointContract.callStatic.simulateValidation(userOp).catch(e => e)
-    // console.log('errorResult ', errorResult);
-    // const { returnInfo } = errorResult.errorArgs
-    // console.log('returnInfo ', returnInfo);
-    
+    console.log(entryPointAddress);
+
+    const errorResult = await entryPointContract.callStatic
+      .simulateValidation(userOp)
+      .catch((e) => e);
+    console.log('errorResult ', errorResult);
+    const { returnInfo } = errorResult.errorArgs;
+    console.log('returnInfo ', returnInfo);
+
     // let {
     //   preOpGas,
     //   deadline
@@ -185,8 +218,7 @@ export class AppService {
 
     // console.log(entryPointAddress, userOp.sender, userOp.callData);
     // console.log(preOpGas, deadline);
-    
-    
+
     // const callGasLimit = await this.web3Provider.estimateGas({
     //   from: entryPointAddress,
     //   to: userOp.sender,
@@ -197,11 +229,11 @@ export class AppService {
     //   throw new Error(message)
     // })
     // console.log('dead line', deadline);
-    
+
     // if (deadline)
     // deadline = BigNumber.from(deadline)
     // console.log('deadline ', deadline);
-    
+
     // if (deadline === 0) {
     //   deadline = undefined
     // }
@@ -235,37 +267,41 @@ export class AppService {
     //     "signature": "0xbe81bee6748a39212800c82b3552f2e76c74cd3cab64da25c9679e31e6a6b10346650e00153f092aa4d3e11686cb968101311e5f135014c2a796d9ca00052ff01c"
     // }
     // ]
-    
-    const { data } = await entryPointContract
-          .populateTransaction.handleOps([userOp], await this.signer.getAddress())
-    const nonce = await this.provider.getTransactionCount(this.signer.getAddress(), 'pending')
-    let maxFeePerGas, maxPriorityFeePerGas, gasPrice
-    const feeData = await this.provider.getFeeData()
+
+    const { data } = await entryPointContract.populateTransaction.handleOps(
+      [userOp],
+      await this.signer.getAddress(),
+    );
+    const nonce = await this.provider.getTransactionCount(
+      this.signer.getAddress(),
+      'pending',
+    );
+    let maxFeePerGas, maxPriorityFeePerGas, gasPrice;
+    const feeData = await this.provider.getFeeData();
     console.log(feeData);
     if (maxFeePerGas == null) {
-      maxFeePerGas = feeData.maxFeePerGas ?? undefined
+      maxFeePerGas = feeData.maxFeePerGas ?? undefined;
     }
     if (maxPriorityFeePerGas == null) {
-      maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined
+      maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? undefined;
     }
-    if ( gasPrice == null ){
-      gasPrice = feeData.gasPrice ?? undefined
+    if (gasPrice == null) {
+      gasPrice = feeData.gasPrice ?? undefined;
     }
 
     if (!maxFeePerGas || !maxPriorityFeePerGas) {
-      const gasFee = await this.provider.getGasPrice() // Could be from bundler/ oracle
-      maxFeePerGas = gasFee
-      maxPriorityFeePerGas = gasFee
-      gasPrice = gasFee
+      const gasFee = await this.provider.getGasPrice(); // Could be from bundler/ oracle
+      maxFeePerGas = gasFee;
+      maxPriorityFeePerGas = gasFee;
+      gasPrice = gasFee;
     }
-    const callGasLimit =
-    (await this.provider.estimateGas({
+    const callGasLimit = await this.provider.estimateGas({
       from: await this.signer.getAddress(),
       to: entryPointAddress,
-      data
-    }))
+      data,
+    });
     console.log('callGasLimit ', callGasLimit);
-    
+
     // Type 1 TRX
     const rawTransaction: ethers.providers.TransactionRequest = {
       from: await this.signer.getAddress(),
@@ -276,7 +312,7 @@ export class AppService {
       chainId,
       nonce,
       gasPrice: ethers.utils.hexlify(Number(gasPrice)),
-    }
+    };
     // type 2 trx
     // const rawTransaction: ethers.providers.TransactionRequest = {
     //   from: await this.signer.getAddress(),
@@ -292,10 +328,8 @@ export class AppService {
     // }
     console.log('rawTrx', rawTransaction);
 
-
-    
     const tx = await this.signer.signTransaction(rawTransaction);
-    const receipt = await this.provider.sendTransaction(tx)
+    const receipt = await this.provider.sendTransaction(tx);
     console.log('receipt ', receipt);
     return receipt;
   }
