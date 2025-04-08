@@ -3,6 +3,7 @@
 import {
   decodeErrorResult,
   encodeFunctionData,
+  parseEther,
   toHex,
   zeroAddress,
 } from "viem";
@@ -39,6 +40,11 @@ import {
   EstimateUserOperationGasResult,
   toPackedUserOperation,
   bumpBigIntPercent,
+  SupportedChain,
+  ChainStack,
+  EntryPointVersion,
+  DEFAULT_PAYMASTERS,
+  StateOverrideBuilder,
 } from "@biconomy/gas-estimations";
 import { STATUSES } from "../../server/api/shared/statuses";
 import { BUNDLER_ERROR_CODES } from "../../server/api/shared/errors/codes";
@@ -61,9 +67,35 @@ export class BundlerSimulationServiceV07 {
   ) {
     this.networkService = networkService;
     this.gasPriceService = gasPriceService;
+    const customChain: SupportedChain = {
+      chainId: 994873017,
+      name: "Biconomy Mainnet",
+      isTestnet: false,
+      stack: ChainStack.EVM,
+      eip1559: false,
+      entryPoints: {
+        [EntryPointVersion.v060]: {
+          address: "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+        },
+        [EntryPointVersion.v070]: {
+          address: "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+        },
+      },
+      stateOverrideSupport: {
+        balance: true,
+        bytecode: false,
+        stateDiff: false,
+      },
+      smartAccountSupport: {
+        smartAccountsV2: true,
+        nexus: true,
+      },
+      paymasters: DEFAULT_PAYMASTERS,
+    };
     this.gasEstimator = createGasEstimator({
-      chainId: networkService.chainId,
+      chainId: customChain.chainId,
       rpc: config.chains.providers[networkService.chainId][0].url,
+      chain: customChain
     });
   }
 

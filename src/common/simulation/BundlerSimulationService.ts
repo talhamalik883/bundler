@@ -33,7 +33,7 @@ import {
 } from "./types";
 import { BLOCKCHAINS } from "../constants";
 import { IGasPriceService } from "../gas-price";
-import { UserOperationV6 } from "@biconomy/gas-estimations";
+import { ChainStack, DEFAULT_PAYMASTERS, EntryPointVersion, SupportedChain, UserOperationV6 } from "@biconomy/gas-estimations";
 import { GasEstimator } from "@biconomy/gas-estimations";
 import { createGasEstimator } from "@biconomy/gas-estimations";
 import { isEstimateUserOperationGasResultV6 } from "@biconomy/gas-estimations";
@@ -79,8 +79,39 @@ export class BundlerSimulationService {
   }: IBundlerSimulationServiceOptions) {
     this.networkService = networkService;
     this.gasPriceService = gasPriceService;
-    this.gasEstimator = gasEstimator;
+    // this.gasEstimator = gasEstimator;
+    const customChain: SupportedChain = {
+      chainId: 994873017,
+      name: "Biconomy Mainnet",
+      isTestnet: false,
+      stack: ChainStack.EVM,
+      eip1559: false,
+      entryPoints: {
+        [EntryPointVersion.v060]: {
+          address: "0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789",
+        },
+        [EntryPointVersion.v070]: {
+          address: "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
+        },
+      },
+      stateOverrideSupport: {
+        balance: true,
+        bytecode: true,
+        stateDiff: true,
+      },
+      smartAccountSupport: {
+        smartAccountsV2: true,
+        nexus: false,
+      },
+      paymasters: DEFAULT_PAYMASTERS,
+    };
+    this.gasEstimator = createGasEstimator({
+      chainId: customChain.chainId,
+      chain: customChain,
+      rpc: config.chains.providers[networkService.chainId][0].url,
+    })
   }
+
 
   /**
    * Used for pretty printing the service configuration
@@ -124,6 +155,10 @@ export class BundlerSimulationService {
       }
 
       const gasPrice = await this.gasPriceService.getGasPrice();
+      console.log(
+        `gasPrice`,
+        gasPrice)
+
       if (typeof gasPrice === "bigint") {
         userOp.maxFeePerGas = gasPrice;
         userOp.maxPriorityFeePerGas = gasPrice;
@@ -140,6 +175,9 @@ export class BundlerSimulationService {
       );
 
       let baseFeePerGas = await this.gasPriceService.getBaseFeePerGas();
+      console.log(
+        `baseFeePerGas`,
+        baseFeePerGas)
       if (chainId === BLOCKCHAINS.OP_BNB_MAINNET && baseFeePerGas === 0n) {
         baseFeePerGas = BigInt(
           config.gasOverrides[BLOCKCHAINS.OP_BNB_MAINNET].baseFeePerGas,
