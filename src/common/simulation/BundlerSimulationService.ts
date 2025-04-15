@@ -81,7 +81,7 @@ export class BundlerSimulationService {
     this.gasPriceService = gasPriceService;
     // this.gasEstimator = gasEstimator;
     const customChain: SupportedChain = {
-      chainId: 994873017,
+      chainId: networkService.chainId,
       name: "Biconomy Mainnet",
       isTestnet: false,
       stack: ChainStack.EVM,
