@@ -90,6 +90,44 @@ export class EVMTransactionService
     return this.addressMutex[address];
   }
 
+  async waitForNextBlockAndSend<T>(
+    sendFn: () => Promise<T>
+  ): Promise<T> {
+    const blockTimeBufferMs = 500; // send TX ~500ms before next block
+  
+    const startBlock = await this.networkService.provider.getBlockNumber();
+    logger.info(`Current block: ${startBlock}. Waiting for next...`);
+  
+    return new Promise((resolve, reject) => {
+      const pollIntervalMs = 300;
+  
+      const interval = setInterval(async () => {
+        try {
+          const latestBlock = await this.networkService.provider.getBlockNumber();
+  
+          if (latestBlock > startBlock) {
+            logger.info(`New block ${latestBlock} mined. Sending TX...`);
+            clearInterval(interval);
+  
+            setTimeout(async () => {
+              try {
+                const res = await sendFn();
+                resolve(res);
+              } catch (e) {
+                logger.error(`Error sending TX: ${e}`);
+                reject(e);
+              }
+            }, blockTimeBufferMs);
+          }
+        } catch (e) {
+          clearInterval(interval);
+          logger.error(`Error polling block: ${e}`);
+          reject(e);
+        }
+      }, pollIntervalMs);
+    });
+  }
+
   async sendTransaction(
     transactionData: TransactionDataType,
     account: IEVMAccount,
@@ -149,6 +187,7 @@ export class EVMTransactionService
     _log.info(`Lock taken on relayer`);
 
     try {
+
       // create transaction
       const rawTransaction = await this.createTransaction({
         from: relayerAddress,
@@ -166,12 +205,8 @@ export class EVMTransactionService
         `Calling EVMTransactionService.executeTransation`,
       );
 
-      const executeTransactionResponse = await this.executeTransaction(
-        {
-          rawTransaction,
-          account,
-        },
-        transactionId,
+      const executeTransactionResponse = await this.waitForNextBlockAndSend(
+        () => this.executeTransaction({ rawTransaction, account }, transactionId)
       );
 
       _log.info(
