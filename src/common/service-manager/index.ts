@@ -425,6 +425,9 @@ async function setupRelayerManagers(
   chainId: number,
   _log: Logger,
 ) {
+  _log.info(
+    `setupRelayerManagers: ${networkService.rpcUrl}`,
+  );
   for (const relayerManager of config.relayerManagers) {
     const relayerQueue = new EVMRelayerQueue([]);
     if (!EVMRelayerManagerMap[relayerManager.name]) {
