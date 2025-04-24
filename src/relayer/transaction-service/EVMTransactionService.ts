@@ -504,23 +504,11 @@ export class EVMTransactionService
 
     if (typeof gasPrice !== "bigint") {
       const { maxPriorityFeePerGas, maxFeePerGas } = gasPrice;
-    
-      // Double both maxFeePerGas and maxPriorityFeePerGas
-      const bumpedMaxFeePerGas = BigInt(maxFeePerGas) * 2n;
-      const bumpedMaxPriorityFeePerGas = BigInt(maxPriorityFeePerGas) * 2n;
-    
-      _log.info({
-        originalMaxFeePerGas: maxFeePerGas,
-        bumpedMaxFeePerGas,
-        originalMaxPriorityFeePerGas: maxPriorityFeePerGas,
-        bumpedMaxPriorityFeePerGas,
-      }, `Doubled gas fees to outrun frontrunners`);
-    
       return {
         ...response,
         type: "eip1559",
-        maxFeePerGas: bumpedMaxFeePerGas,
-        maxPriorityFeePerGas: bumpedMaxPriorityFeePerGas,
+        maxFeePerGas: BigInt(maxFeePerGas),
+        maxPriorityFeePerGas: BigInt(maxPriorityFeePerGas),
       };
     }
     return { ...response, type: "legacy", gasPrice: BigInt(gasPrice) };
