@@ -469,9 +469,8 @@ export class EVMTransactionService
     if (typeof gasPrice !== "bigint") {
       const { maxPriorityFeePerGas, maxFeePerGas } = gasPrice;
     
-      // 💡 Apply a multiplier or bump here
-      const bumpMultiplier = 1.00000005; // Safe tiny bump to beat frontrunners
-    
+      const bumpMultiplier = 1.0001; // Increase by 0.01% or adjust based on your observations
+
       const bumpedMaxFeePerGas = BigInt(
         Math.ceil(Number(maxFeePerGas) * bumpMultiplier)
       );
