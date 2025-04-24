@@ -39,6 +39,15 @@ export const bundleUserOperation = async (req: Request, res: Response) => {
       gasLimitFromSimulation += 5000000000;
     }
 
+    const gasBufferMultiplier = 2.0; // 20% buffer, adjust as needed
+
+    userOp.maxFeePerGas = BigInt(userOp.maxFeePerGas) * BigInt(Math.floor(gasBufferMultiplier * 100)) / BigInt(100);
+    userOp.maxPriorityFeePerGas = BigInt(userOp.maxPriorityFeePerGas) * BigInt(Math.floor(gasBufferMultiplier * 100)) / BigInt(100);
+    
+    // Convert BigInt back to string if needed (depending on your bundler expects)
+    userOp.maxFeePerGas = userOp.maxFeePerGas.toString();
+    userOp.maxPriorityFeePerGas = userOp.maxPriorityFeePerGas.toString();
+    
     if (!routeTransactionToRelayerMap[chainIdInNum][TransactionType.BUNDLER]) {
       const end = performance.now();
       log.info(`bundleUserOperation took: ${end - start} milliseconds`);
