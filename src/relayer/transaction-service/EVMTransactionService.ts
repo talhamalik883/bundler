@@ -469,22 +469,16 @@ export class EVMTransactionService
     if (typeof gasPrice !== "bigint") {
       const { maxPriorityFeePerGas, maxFeePerGas } = gasPrice;
     
-      const bumpPercentage = 0.05; // 5% bump, you can adjust this percentage as needed
-
-      // Calculate the dynamic bump based on the current maxFeePerGas
-      const bumpWeiValue = BigInt(maxFeePerGas) * BigInt(Math.round(bumpPercentage * 100)); // 5% bump, adjust as needed
-      
-      // Apply the bump to both maxFeePerGas and maxPriorityFeePerGas
-      const bumpedMaxFeePerGas = BigInt(maxFeePerGas) + bumpWeiValue;
-      const bumpedMaxPriorityFeePerGas = BigInt(maxPriorityFeePerGas) + bumpWeiValue;
-      
+      // Double both maxFeePerGas and maxPriorityFeePerGas
+      const bumpedMaxFeePerGas = BigInt(maxFeePerGas) * 2n;
+      const bumpedMaxPriorityFeePerGas = BigInt(maxPriorityFeePerGas) * 2n;
     
       _log.info({
         originalMaxFeePerGas: maxFeePerGas,
         bumpedMaxFeePerGas,
         originalMaxPriorityFeePerGas: maxPriorityFeePerGas,
         bumpedMaxPriorityFeePerGas,
-      }, `Bumped gas fees slightly to outrun frontrunners`);
+      }, `Doubled gas fees to outrun frontrunners`);
     
       return {
         ...response,
@@ -493,6 +487,7 @@ export class EVMTransactionService
         maxPriorityFeePerGas: bumpedMaxPriorityFeePerGas,
       };
     }
+    return { ...response, type: "legacy", gasPrice: BigInt(gasPrice) };
   }    
 
   // Linea has a custom linea_estimateGas RPC endpoint that we need to call for every transaction
