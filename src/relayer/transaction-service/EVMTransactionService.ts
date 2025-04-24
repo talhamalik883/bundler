@@ -93,20 +93,21 @@ export class EVMTransactionService
   async waitForNextBlockAndSend<T>(
     sendFn: () => Promise<T>
   ): Promise<T> {
-    const blockTimeBufferMs = 500; // send TX ~500ms before next block
+    const blockTimeBufferMs = 500; // ~500ms before next block to submit
+    const extraBufferMs = 1000;  // Add 1 second to stabilize transaction broadcast
   
     const startBlock = await this.networkService.provider.getBlockNumber();
     logger.info(`Current block: ${startBlock}. Waiting for next...`);
   
     return new Promise((resolve, reject) => {
-      const pollIntervalMs = 300;
+      const pollIntervalMs = 300; // interval to check for new block
   
       const interval = setInterval(async () => {
         try {
           const latestBlock = await this.networkService.provider.getBlockNumber();
   
           if (latestBlock > startBlock) {
-            logger.info(`New block ${latestBlock} mined. Sending TX...`);
+            logger.info(`[ New block ${latestBlock} mined. Preparing to send TX...`);
             clearInterval(interval);
   
             setTimeout(async () => {
@@ -114,14 +115,14 @@ export class EVMTransactionService
                 const res = await sendFn();
                 resolve(res);
               } catch (e) {
-                logger.error(`Error sending TX: ${e}`);
+                logger.error(`[ Error sending TX: ${e}`);
                 reject(e);
               }
-            }, blockTimeBufferMs);
+            }, blockTimeBufferMs + extraBufferMs); // extra delay to prevent frontrun
           }
         } catch (e) {
           clearInterval(interval);
-          logger.error(`Error polling block: ${e}`);
+          logger.error(`[ Error polling block: ${e}`);
           reject(e);
         }
       }, pollIntervalMs);
