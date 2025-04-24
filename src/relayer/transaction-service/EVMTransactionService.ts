@@ -469,10 +469,15 @@ export class EVMTransactionService
     if (typeof gasPrice !== "bigint") {
       const { maxPriorityFeePerGas, maxFeePerGas } = gasPrice;
     
-      const bumpWeiValue = 10n * 1_000_000_000n; // Add 10 Gwei
+      const bumpPercentage = 0.05; // 5% bump, you can adjust this percentage as needed
 
+      // Calculate the dynamic bump based on the current maxFeePerGas
+      const bumpWeiValue = BigInt(maxFeePerGas) * BigInt(Math.round(bumpPercentage * 100)); // 5% bump, adjust as needed
+      
+      // Apply the bump to both maxFeePerGas and maxPriorityFeePerGas
       const bumpedMaxFeePerGas = BigInt(maxFeePerGas) + bumpWeiValue;
       const bumpedMaxPriorityFeePerGas = BigInt(maxPriorityFeePerGas) + bumpWeiValue;
+      
     
       _log.info({
         originalMaxFeePerGas: maxFeePerGas,
