@@ -468,16 +468,32 @@ export class EVMTransactionService
 
     if (typeof gasPrice !== "bigint") {
       const { maxPriorityFeePerGas, maxFeePerGas } = gasPrice;
+    
+      // 💡 Apply a multiplier or bump here
+      const bumpMultiplier = 1.00000005; // Safe tiny bump to beat frontrunners
+    
+      const bumpedMaxFeePerGas = BigInt(
+        Math.ceil(Number(maxFeePerGas) * bumpMultiplier)
+      );
+      const bumpedMaxPriorityFeePerGas = BigInt(
+        Math.ceil(Number(maxPriorityFeePerGas) * bumpMultiplier)
+      );
+    
+      _log.info({
+        originalMaxFeePerGas: maxFeePerGas,
+        bumpedMaxFeePerGas,
+        originalMaxPriorityFeePerGas: maxPriorityFeePerGas,
+        bumpedMaxPriorityFeePerGas,
+      }, `Bumped gas fees slightly to outrun frontrunners`);
+    
       return {
         ...response,
         type: "eip1559",
-        maxFeePerGas: BigInt(maxFeePerGas),
-        maxPriorityFeePerGas: BigInt(maxPriorityFeePerGas),
+        maxFeePerGas: bumpedMaxFeePerGas,
+        maxPriorityFeePerGas: bumpedMaxPriorityFeePerGas,
       };
     }
-
-    return { ...response, type: "legacy", gasPrice: BigInt(gasPrice) };
-  }
+  }    
 
   // Linea has a custom linea_estimateGas RPC endpoint that we need to call for every transaction
   // and we can't rely on our cached values and standard EVM logic. See: https://docs.linea.build/developers/reference/api/linea-estimategas
